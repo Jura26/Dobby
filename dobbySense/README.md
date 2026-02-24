@@ -4,6 +4,17 @@
 
 ---
 
+## 🏆 Author Contributions: Jurica Šlibar
+
+This entire recommendation engine architecture and its integration into the Dobby platform were spearheaded by **Jurica Šlibar**. Key contributions include:
+
+- **Core Machine Learning Model (`dobbySense/`)**: Designed, developed, and trained the PyTorch Hybrid Matrix Factorization model from scratch. This includes all work within the `dobbySense` directory: the Jupyter notebooks for experimentation (`matrixFactorization.ipynb`), the production Python training scripts (`matrixFactorization.py`), and the dependency management (`requirements.txt`).
+- **MLOps & Cloud Deployment**: Engineered the automated training pipeline using Docker and Google Cloud Platform (Vertex AI). Authored the `Dockerfile` and the `deploy_and_train.ps1` script to enable a "Set and Forget" serverless training architecture.
+- **The "Fold-In" Algorithm**: Architected the mathematical solution for the User Cold Start problem and implemented its API integration in the Next.js backend (`app/api/dobbySenseAPI/fold-in/route.ts`), allowing real-time embedding synthesis for new users.
+- **FBS (Filter, Better-Similar) Architecture**: Conceptualized and designed the architecture for the FBS system (`app/api/recommendation-engine/fbs.functions.ts`). While the final code implementation was collaborative, the core idea of filtering mathematically relevant but qualitatively poor items and stochastically replacing them with high-quality similar items was Jurica's architectural design.
+
+---
+
 ## 1. Mathematical Foundation
 
 ### 1.1 Standard Matrix Factorization (The Baseline)
@@ -12,7 +23,7 @@ At its core, DobbySense builds upon Probabilistic Matrix Factorization (PMF). In
 
 The predicted rating $\hat{r}_{ui}$ for user $u$ and item $i$ is given by:
 
-$$ \hat{r}_{ui} = \mathbf{p}_u \cdot \mathbf{q}_i + b_u + b_i + \mu $$
+$$ \hat{r}\_{ui} = \mathbf{p}\_u \cdot \mathbf{q}\_i + b_u + b_i + \mu $$
 
 Where:
 
@@ -29,15 +40,15 @@ Standard MF fails when an item has few ratings (item cold start) or when we want
 We represent the genres of movie $i$ as a multi-hot vector $\mathbf{g}_i \in \{0,1\}^N$, where $N$ is the number of total genres. The model learns a linear transformation to map these discrete logical features into the continuous latent space of the model.
 
 Let $f_{genre}(\cdot)$ be our learned linear mapping:
-$$ f_{genre}(\mathbf{x}) = \mathbf{W}_g \mathbf{x} + \mathbf{b}_g $$
+$$ f\_{genre}(\mathbf{x}) = \mathbf{W}\_g \mathbf{x} + \mathbf{b}\_g $$
 
 The model modifies the effective item representation used for prediction. The effective item vector $\mathbf{q}'_i$ becomes a weighted sum of its unique identity vector and its semantic content vector:
 
-$$ \mathbf{q}'_i = \mathbf{q}_i + \lambda \cdot f_{genre}(\mathbf{g}_i) $$
+$$ \mathbf{q}'_i = \mathbf{q}\_i + \lambda \cdot f_{genre}(\mathbf{g}\_i) $$
 
 Substituting this back into the prediction equation:
 
-$$ \hat{r}_{ui} = \mathbf{p}_u \cdot \left( \mathbf{q}_i + \lambda (\mathbf{W}_g \mathbf{g}_i + \mathbf{b}_g) \right) + b_u + b_i + \mu $$
+$$ \hat{r}\_{ui} = \mathbf{p}\_u \cdot \left( \mathbf{q}\_i + \lambda (\mathbf{W}\_g \mathbf{g}\_i + \mathbf{b}\_g) \right) + b_u + b_i + \mu $$
 
 - $\mathbf{W}_g$: A learnable weight matrix of shape $(k \times N)$ representing genre embeddings.
 - $\lambda$: A hyperparameter (`GENRE_WEIGHT`) controlling how much genres influence the recommendation versus pure user behavior.
@@ -49,16 +60,16 @@ $$ \hat{r}_{ui} = \mathbf{p}_u \cdot \left( \mathbf{q}_i + \lambda (\mathbf{W}_g
 The system is implemented as a PyTorch `nn.Module` (`HybridMatrixFactorization`) with the following components:
 
 1. **User Embedding Layer**: `nn.Embedding(num_users, latent_dim)`
-	- Learns a specialized vector for every known user ID.
+   - Learns a specialized vector for every known user ID.
 2. **Movie Identity Layer**: `nn.Embedding(num_movies, latent_dim)`
-	- Learns unique characteristics of a movie that _aren't_ explained by its genres (e.g., acting quality, direction style).
+   - Learns unique characteristics of a movie that _aren't_ explained by its genres (e.g., acting quality, direction style).
 3. **Genre Projection Layer**: `nn.Linear(num_genres, latent_dim)`
-	- Learns what "Action" or "Romance" looks like in the abstract vector space.
+   - Learns what "Action" or "Romance" looks like in the abstract vector space.
 4. **Bias Layers**:
-	- User and Movie biases are learned as scalar embeddings (`latent_dim=1`).
+   - User and Movie biases are learned as scalar embeddings (`latent_dim=1`).
 5. **Regularization**:
-	- **Dropout**: Applied to user and item vectors during training to prevent overfitting.
-	- **L2 Regularization** (Weight Decay): Applied via the Adam optimizer to constrain the magnitude of the latent vectors.
+   - **Dropout**: Applied to user and item vectors during training to prevent overfitting.
+   - **L2 Regularization** (Weight Decay): Applied via the Adam optimizer to constrain the magnitude of the latent vectors.
 
 ---
 
@@ -78,13 +89,22 @@ If a new user selects "Sci-Fi" and "Thriller" during onboarding, we don't need t
 2. **User Input**: User selects a set of preferred genres $S_{prefs}$.
 3. **Synthesis**: We calculate the "Center of Gravity" for those genres in the latent space.
 
-$$ \mathbf{p}_{new} \approx \frac{1}{|S_{prefs}|} \sum_{j \in S_{prefs}} (\mathbf{W}_{g}[:, j] + \mathbf{b}_g) $$
+$$ \mathbf{p}_{new} \approx \frac{1}{|S_{prefs}|} \sum*{j \in S*{prefs}} (\mathbf{W}\_{g}[:, j] + \mathbf{b}\_g) $$
 
 This synthesized vector $\mathbf{p}_{new}$ is mathematically compatible with all existing movie vectors $\mathbf{q}'_i$. We can immediately perform Cosine Similarity searches to generate recommendations:
 
-$$ \text{Score}(u_{new}, i) = \cos(\mathbf{p}_{new}, \mathbf{q}'_i) $$
+$$ \text{Score}(u*{new}, i) = \cos(\mathbf{p}*{new}, \mathbf{q}'\_i) $$
 
 This allows Dobby to provide highly personalized recommendations **milliseconds** after account creation.
+
+### 3.3 TV Show Embeddings (Pure Content-Based Fold-In)
+
+While movies have millions of user ratings allowing us to learn their identity vectors ($\mathbf{q}_i$), **TV Shows** in our dataset often lack sufficient interaction data for full collaborative filtering. To generate embeddings for TV shows, we treat them as "Cold Start Items" and use a projection technique similar to the User Fold-In.
+
+1. **Genre Extraction**: For every show in `shows.csv`, we construct its multi-hot genre vector $\mathbf{g}_{show}$.
+2. **Projection**: We pass this vector through the **already trained** Genre Layer ($\mathbf{W}_g$) to project the show into the same latent space as the movies.
+   $$ \mathbf{q}_{show} = \lambda \cdot (\mathbf{W}\_g \mathbf{g}_{show} + \mathbf{b}\_g) $$
+3. **Result**: This creates a vector representation for every TV show that is mathematically compatible with user vectors. A user who likes "Sci-Fi Movies" will vector-match with "Sci-Fi Shows" purely because the model understands what "Sci-Fi" implies in the latent space.
 
 ---
 
@@ -97,12 +117,12 @@ The training process is orchestrated via Jupyter Notebooks (`matrixFactorization
 The model is trained on a massive merge of movie and TV show data:
 
 1. **The Movies Dataset (Kaggle)**:
-	- Source: [Rounak Banik on Kaggle](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset)
-	- Content: Metadata and **26M+ ratings** from 270,000 users for all movies listed in the Full MovieLens Dataset. This provides the deep historical behavior data needed for collaborative filtering.
+   - Source: [Rounak Banik on Kaggle](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset)
+   - Content: Metadata and **26M+ ratings** from 270,000 users for all movies listed in the Full MovieLens Dataset. This provides the deep historical behavior data needed for collaborative filtering.
 
 2. **Full TMDB TV Shows Dataset (Kaggle)**:
-	- Source: [Asaniczka on Kaggle](https://www.kaggle.com/datasets/asaniczka/full-tmdb-tv-shows-dataset-2023-150k-shows/data)
-	- Content: Comprehensive metadata for over 150,000 TV shows. This allows Dobby to recommend shows alongside movies using the same genre-based vector space.
+   - Source: [Asaniczka on Kaggle](https://www.kaggle.com/datasets/asaniczka/full-tmdb-tv-shows-dataset-2023-150k-shows/data)
+   - Content: Comprehensive metadata for over 150,000 TV shows. This allows Dobby to recommend shows alongside movies using the same genre-based vector space.
 
 3. **Dynamic Data**: Real-time user ratings fetched from Supabase (`movie_ratings` table) are merged with the Kaggle data at training time, ensuring the model adapts to current Dobby users.
 
@@ -127,9 +147,9 @@ The model is trained on a massive merge of movie and TV show data:
 
 1. **Data Ingestion**: Load CSVs from GCS + Fetch Supabase table.
 2. **Preprocessing**:
-	- **Re-indexing**: Maps raw user/movie IDs to continuous 0..N integers. This is crucial for embedding lookup efficiency.
-	- **Multi-Hot Encoding**: Converts raw genre strings (e.g., "Action|Sci-Fi") into a binary matrix where each column represents a genre.
-	- **Alignment**: Ensures that the `genre_matrix` is perfectly aligned with the `movie_idx` used in the PyTorch model.
+   - **Re-indexing**: Maps raw user/movie IDs to continuous 0..N integers. This is crucial for embedding lookup efficiency.
+   - **Multi-Hot Encoding**: Converts raw genre strings (e.g., "Action|Sci-Fi") into a binary matrix where each column represents a genre.
+   - **Alignment**: Ensures that the `genre_matrix` is perfectly aligned with the `movie_idx` used in the PyTorch model.
 3. **Training**: Run Adam optimizer on `MSELoss`.
 4. **Export**: Save artifacts to Supabase.
 
@@ -151,8 +171,7 @@ The system calls a PostgreSQL RPC function (`get_top_movies_for_user`) which per
 - **Process**: Index scan on the `vectors` column.
 - **Output**: Top $K$ raw ID candidates (e.g., top 20 movies) closest to the user's taste.
 
-
-### 5.2 The FBS (Filter, Better-Similar) Algorithm
+### 5.2 The FBS (Find Better Similar) Algorithm
 
 A common issue with pure Collaborative Filtering is that it may recommend "mathematically correct" but "qualitatively poor" items. For example, it might recommend a C-grade Sci-Fi movie simply because it has the perfect vector coordinates for a Sci-Fi fan.
 
@@ -167,7 +186,7 @@ An item is flagged as **"Bad"** if:
 1. **Low Rating**: `vote_average` < `minVoteAverage` (e.g., 5.0).
 2. **Too Old**: `year` < `minYear` (e.g., 1980).
 3. **Mid-Tier Trap**: `vote_average` < `midTierRating` **AND** `year` <= `midTierYear`.
-	- _Rationale_: Older movies (e.g., from 1990) are acceptable if they are classics (high rating), but mediocre old movies are usually irrelevant to modern users.
+   - _Rationale_: Older movies (e.g., from 1990) are acceptable if they are classics (high rating), but mediocre old movies are usually irrelevant to modern users.
 
 #### Step B: Smart Replacement (`Better-Similar`)
 
@@ -176,7 +195,7 @@ Instead of simply discarding a "Bad" item (which would shrink the recommendation
 1. **Fetch Similar**: The system queries TMDB for items similar to the "Bad" candidate.
 2. **Filter & Sort**: The similar items are themselves filtered (removing bad ones) and sorted by **Popularity**.
 3. **Stochastic Selection**: We pick a random item from the **Top 5** best alternatives.
-	- _Why Top 5?_ Picking #1 every time reduces variety. Randomness ensures the feed feels fresh.
+   - _Why Top 5?_ Picking #1 every time reduces variety. Randomness ensures the feed feels fresh.
 
 ### 5.3 Fuzzy Logic Layer: Cold Start & Ranking
 
@@ -209,25 +228,21 @@ The final fuzzy score is a weighted sum of all rule outputs, normalized by the s
 #### Application in Ranking
 
 - **For users with genre preferences but little/no rating history (cold start):**
-  - The fuzzy score is weighted heavily (e.g., 85%) in the final ranking, with a small base score for list position.
+   - The fuzzy score is weighted heavily (e.g., 85%) in the final ranking, with a small base score for list position.
 - **For users with rating history:**
-  - The fuzzy score is blended with the embedding-based rank and a small random jitter for diversity.
+   - The fuzzy score is blended with the embedding-based rank and a small random jitter for diversity.
 
 This approach ensures that recommendations are both mathematically relevant and intuitively appealing, even for new users.
-
 
 ### 5.4 Pipeline Execution Flow
 
 The DobbySense recommendation pipeline consists of three main stages, executed in order:
 
-**1. Embedding-based Candidate Selection**
-	- Retrieve top candidate movies and shows for the user using vector search in the shared embedding space (via `get_top_movies_for_user` and `get_top_shows_for_user`).
+**1. Embedding-based Candidate Selection** - Retrieve top candidate movies and shows for the user using vector search in the shared embedding space (via `get_top_movies_for_user` and `get_top_shows_for_user`).
 
-**2. FBS (Filter, Better-Similar) Post-Processing**
-	- Remove or upgrade low-quality items using the FBS algorithm: filter out "bad" candidates and, where possible, replace them with better, similar alternatives.
+**2. FBS (Filter, Better-Similar) Post-Processing** - Remove or upgrade low-quality items using the FBS algorithm: filter out "bad" candidates and, where possible, replace them with better, similar alternatives.
 
-**3. Fuzzy Logic Scoring and Ranking**
-	- Apply fuzzy logic to score and rank the remaining candidates, taking into account genre match, popularity, and user preferences. This ensures recommendations are both mathematically relevant and intuitively appealing, especially for new or cold-start users.
+**3. Fuzzy Logic Scoring and Ranking** - Apply fuzzy logic to score and rank the remaining candidates, taking into account genre match, popularity, and user preferences. This ensures recommendations are both mathematically relevant and intuitively appealing, especially for new or cold-start users.
 
 **Summary Flow:**
 
@@ -244,15 +259,107 @@ This logic lives in valid Next.js API routes (e.g., `api/recommendation-engine`)
 1. **Trigger**: User opens "For You" page (`/home`).
 2. **Check Cache**: System checks `movie_recommendations` table for fresh ( < 24h old) rows.
 3. **Compute**: If cache miss:
-	- Calculate Vector Logic (`get_top_movies_for_user`).
-	- Run **FBS Post-Processing** (Javascript Layer).
-	- Apply fuzzy logic scoring and ranking.
-	- Fetch metadata for final list.
+   - Calculate Vector Logic (`get_top_movies_for_user`).
+   - Run **FBS Post-Processing** (Javascript Layer).
+   - Apply fuzzy logic scoring and ranking.
+   - Fetch metadata for final list.
 4. **Cache & Return**: Result is saved to `movie_recommendations` and returned to UI.
 
 ---
 
-## 6. References & Further Reading
+## 6. Implementation & Deployment (MLOps)
+
+DobbySense utilizes a serverless, containerized MLOps pipeline hosted on **Google Cloud Platform (GCP)**. The architecture is designed for "Set and Forget" automation, ensuring the model is constantly retrained on newly generated user data without manual intervention.
+
+### 6.1 Cloud Architecture (Vertex AI)
+
+The deployment strategy leverages Google's managed AI services to handle the heavy lifting of GPU provisioning and container orchestration.
+
+1. **Container Registry (Artifact Registry)**:
+   - We do not run training scripts directly on a VM. Instead, the entire training environment (code, dependencies, configuration) is packaged into a Docker image defined in `Dockerfile`.
+   - These images are versioned and stored in GCP Artifact Registry.
+   - **Base Image**: We utilize the official `vertex-ai/training/pytorch-gpu` container to leverage pre-optimized CUDA drivers and PyTorch binaries.
+
+2. **Compute Engine (Vertex AI Training)**:
+   - The actual model training occurs on **Vertex AI Custom Jobs**.
+   - **Hardware**: The pipeline dynamically provisions `n1-standard-4` instances attached with **NVIDIA Tesla T4 GPUs**. This provides the necessary CUDA acceleration for the matrix factorization operations.
+   - **Ephemeral**: Resources are provisioned only for the duration of the training (typically 10-15 minutes) and then destroyed immediately, optimizing cloud costs.
+
+3. **Orchestration (Cloud Scheduler)**:
+   - A cron job defined in Cloud Scheduler triggers the Vertex AI pipeline every day (configured for `15:00` in the script).
+   - This ensures the model incorporates the latest ratings from the last 24 hours (fetched from Supabase) into the daily build.
+
+### 6.2 The Deployment Script (`deploy_and_train.ps1`)
+
+The entire infrastructure setup and code deployment is automated via a PowerShell script. This "Infrastructure as Code" approach handles:
+
+1. **API Enablement**: Automatically enables required GCP services (AI Platform, Artifact Registry, Cloud Build).
+2. **Image Build**: Submits the build context to Google Cloud Build, which creates the Docker image and pushes it to the registry.
+3. **Job Submission**: Immediately triggers a "One-Off" test run to verify the code works in the remote environment.
+4. **Schedule Update**: Creates or updates the Cloud Scheduler cron job to point to the newly built image version.
+
+### 6.3 Replication Guide (How to Deploy)
+
+To deploy your own instance of the DobbySense trainer, follow these steps:
+
+#### Prerequisites
+
+1. **GCP Project**: Create a project in Google Cloud Console.
+2. **Google Cloud SDK**: Install the `gcloud` CLI and authenticate via `gcloud auth login`.
+3. **Quotas**: Ensure your project has a quota for `NVIDIA_TESLA_T4` GPUs in your target region (e.g., `us-central1`).
+4. **GCS Bucket**: Create a Google Cloud Storage bucket and upload your CSV datasets (`ratings.csv`, `movies.csv`, `shows.csv`).
+
+#### Configuration (Required)
+
+You must manually update the placeholders in the codebase with your specific project details before running any scripts.
+
+**1. Deployment Script (`deploy_and_train.ps1`)**
+Update top-level variables and secrets:
+
+```powershell
+$PROJECT_ID   = "your-gcp-project-id"
+$REGION       = "us-central1"
+$REPO_NAME    = "dobby-models"
+$SUPABASE_URL = "your-supabase-url"
+$SUPABASE_KEY = "your-service-role-key"
+```
+
+**2. Training Script (`trainer/matrixFactorization.py`)**
+Update GCS paths (ensure these match where you uploaded your CSVs):
+
+```python
+RATINGS_PATH = os.environ.get("RATINGS_PATH", "gs://your-bucket/ratings.csv")
+MOVIES_PATH  = os.environ.get("MOVIES_PATH", "gs://your-bucket/movies.csv")
+SHOWS_PATH   = os.environ.get("SHOWS_PATH", "gs://your-bucket/shows.csv")
+```
+
+**3. Notebook (`trainer/matrixFactorization.ipynb`)**
+If running interactively (Colab/local), update the configuration block:
+
+```python
+RATINGS_PATH = "gs://your-bucket/ratings.csv"
+SUPABASE_URL = "your-supabase-url"
+SUPABASE_KEY = "your-service-role-key"
+```
+
+#### Execution
+
+Run the script from a PowerShell terminal within the `dobbySense` directory:
+
+```powershell
+.\deploy_and_train.ps1
+```
+
+**What happens next?**
+
+1. The script will build your Docker image from the `Dockerfile`.
+2. It uploads the image to your GCP project.
+3. It spins up a T4 GPU instance on Vertex AI to run the first training session.
+4. It registers a daily schedule to repeat this process automatically.
+
+---
+
+## 7. References & Further Reading
 
 - Koren, Y., Bell, R., & Volinsky, C. (2009). Matrix factorization techniques for recommender systems.
 - He, X., et al. (2017). Neural Collaborative Filtering.
